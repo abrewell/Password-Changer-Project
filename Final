@@ -1,0 +1,224 @@
+import tkinter as tk
+from validate_email import validate_email
+import random, smtplib, re, subprocess, ldap3
+from ldap3 import Server, Connection, ALL, NTLM
+
+server = Server('', port=636, use_ssl=True)
+connection = Connection(server, user='', password='', authentication=NTLM , auto_bind=True)
+
+
+
+p = subprocess.Popen(['florence show'], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                     universal_newlines=True)
+if not "" == p.stderr.readline():
+    subprocess.Popen(['florence'], shell=True)
+
+
+class PasswordChanger(tk.Tk):
+        def __init__(self, *args, **kwargs):
+            tk.Tk.__init__(self, *args, **kwargs)
+            container = tk.Frame(self)
+
+            container.pack(side="top", fill="both", expand=True)
+
+            container.grid_rowconfigure(0, weight=1)
+            container.grid_columnconfigure(0, weight=1)
+
+            self.frames = {}
+
+            for F in (StartPage, PageOne, PageTwo):
+                frame = F(container, self)
+                self.geometry('800x400')
+
+                self.frames[F] = frame
+
+                frame.grid(row=0, column=0, sticky="nsew")
+
+            self.show_frame(StartPage)
+
+        def show_frame(self, cont):
+            frame = self.frames[cont]
+            frame.tkraise()
+            frame.config(bg='#10416A')
+
+
+class StartPage(tk.Frame):
+        def __init__(self, parent, controller):
+            tk.Frame.__init__(self, parent)
+            welcome = tk.Label(self, font=('arial', 30), text='Welcome, you will need:', bg='#10416A', fg='white')
+            welcome.pack()
+
+            needed = tk.Label(self, font=('arial', 25), text='• Username \n' '• Email address\n' '• Internet Connection (Mobile Phone)', bg='#10416A', fg='white')
+            needed.pack()
+
+            button = tk.Button(self, text="Press To Start", command=lambda: controller.show_frame(PageOne))
+            button.place(x= 300, y= 200)
+            button.pack()
+
+
+class PageOne(tk.Frame):
+        def __init__(self, parent, controller):
+            global otp
+
+            def buttons():
+                large_font = ('arial', 15)
+                tk.Frame.__init__(self, parent)
+                button1 = tk.Button(self, text="Home", command=lambda: delete_both_home(email))
+                button1.pack()
+                button1.place(x=0, y=0)
+
+                button2 = tk.Button(self, text="Next", command=lambda: delete_both_next(email))
+                button2.pack()
+                button2.place(x=743, y=0)
+
+                email_in = tk.StringVar()
+                email = tk.Entry(self, textvariable=email_in, width=35, font= large_font)
+                email.place(x=190, y=120)
+                label_email = tk.Label(self, text="Email address:  ", background='#10416A', font=('arial', 15, "bold"), fg='white').place(x=18, y=120)
+                user_email = email_in
+                enter_button = tk.Button(self, text="Send")
+                enter_button.pack()
+                enter_button.config(state='normal', command=lambda: send_otp(otp, user_email,email))
+                enter_button.place(x=600, y=120)
+
+            def create_otp():
+                contents = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@$%^&*()-_=+[]{}:;?/>.<,0123456789"
+                pw_length = 8
+                output = ""
+
+                for i in range(pw_length):
+                    next_index = random.randrange(len(contents))
+                    output = output + contents[next_index]
+
+                return output
+
+            def send_otp(otp, user_email,email):
+                is_true = validate_email(user_email.get(), check_mx=True)
+                if is_true is True:
+                    try:
+                        content = otp
+                        mail = smtplib.SMTP('smtp.gmail.com', 587)
+                        mail.ehlo()
+                        mail.starttls()
+                        mail.login('', '')
+                        mail.sendmail('', user_email.get(), content)
+                        mail.close
+                        email.delete(0, tk.END)
+                        label_valid = tk.Label(self, text="Email sent, check junk folder if email is not in inbox",
+                                           background='#10416A', font=('arial', 15, "bold"), fg='white').place(x=150, y=50)
+
+                        delete_invalid()
+                    except:
+                        email.delete(0, tk.END)
+                        delete_valid()
+                        label_invalid = tk.Label(self, text="Please input valid email address", background='#10416A',
+                                             font=('arial', 15, "bold"), fg='white').place(x=150, y=50)
+                else:
+                    delete_valid()
+                    label_invalid = tk.Label(self, text="Please input valid email address", background='#10416A',
+                                             font=('arial', 15, "bold"), fg='white').place(x=150, y=50)
+
+            def delete_valid():
+                label_valid = tk.Label(self, text="Email sent, check junk folder if email is not in inbox",
+                                       background='#10416A', font=('arial', 15, "bold"), fg='#10416A').place(x=150,y=200)
+
+            def delete_invalid():
+                label_invalid = tk.Label(self, text="Please input valid email address", background='#10416A',
+                                         font=('arial', 15, "bold"), fg='#10416A').place(x=150,y=90)
+
+            def delete_both_home(email):
+                controller.show_frame(StartPage)
+                email.delete(0, tk.END)
+                label_invalid = tk.Label(self, text="Please input valid email address", background='#10416A',
+                                         font=('arial', 15, "bold"), fg='#10416A').place(x=150, y=50)
+                label_valid = tk.Label(self, text="Email sent, check junk folder if email is not in inbox",
+                                       background='#10416A', font=('arial', 15, "bold"), fg='#10416A').place(x=150,y=50)
+
+
+            def delete_both_next(email):
+                controller.show_frame(PageTwo)
+                email.delete(0, tk.END)
+                label_invalid = tk.Label(self, text="Please input valid email address", background='#10416A',
+                                         font=('arial', 15, "bold"), fg='#10416A').place(x=150, y=50)
+                label_valid = tk.Label(self, text="Email sent, check junk folder if email is not in inbox",
+                                       background='#10416A', font=('arial', 15, "bold"), fg='#10416A').place(x=150,y=50)
+
+            buttons()
+            otp = create_otp()
+
+
+class PageTwo(tk.Frame):
+        def __init__(self, parent, controller):
+
+            def buttons2():
+                large_font = ('arial', 15)
+                tk.Frame.__init__(self, parent)
+                user_in = tk.StringVar()
+                username = tk.Entry(self, textvariable=user_in, width=24, font = large_font)
+                username.place(x=280, y=72)
+                label_username = tk.Label(self, text="Enter username:  ", background='#10416A', font=('arial', 15, "bold"),fg='white').place(x=100, y=72)
+                user_name = user_in
+
+                password_in = tk.StringVar()
+                password = tk.Entry(self, textvariable=password_in, width=24, show="•", font = large_font)
+                password.place(x=280, y=145)
+                label_password = tk.Label(self, text="Enter password:  ", background='#10416A', font=('arial', 15, "bold"),fg='white').place(x=100, y=145)
+                user_password = password_in
+
+                changepass_button = tk.Button(self, text="Change Password")
+                changepass_button.pack()
+                changepass_button.config(command=lambda: change_password(user_name, user_password, otp, username, password))
+                changepass_button.place(x=555, y=145)
+
+                button1 = tk.Button(self, text="Home", command=lambda: delete_both_home2(username, password))
+                button1.pack()
+                button1.place(x=0, y=0)
+
+                return user_name, user_password
+
+            def change_password(user_name, user_password, otp,username,password):
+                print(user_name, user_password, otp)
+
+                dn = "cn=,ou=,dc=,dc="
+                if user_password.get() == otp:
+                    try:
+                        connection.extend.microsoft.modify_password(dn, user=user_name.get(), old_password= None, new_password= user_password.get())
+                        label_valid = tk.Label(self, text="Your password has been set, change it when you next logon", background='#10416A', font=('arial', 15, "bold"), fg='white').place(x=200,y=35)
+                        username.delete(0, tk.END)
+                        password.delete(0, tk.END)
+                        delete_invalid()
+                    except:
+                        label_invalid = tk.Label(self, text="Something went wrong, check username or password", background='#10416A', font=('arial', 15, "bold"), fg='white').place(x=200,y=35)
+                        delete_valid()
+                        password.delete(0, tk.END)
+                else:
+                    label_invalid = tk.Label(self, text="Something went wrong, check username or password",background='#10416A', font=('arial', 15, "bold"), fg='white').place(x=200,y=35)
+                    delete_valid()
+                    password.delete(0, tk.END)
+                    print(connection)
+
+            def delete_valid():
+                label_valid = tk.Label(self,
+                                       text="Your temporary password has been set, make sure to change it when you next logon",
+                                       background='#10416A', font=('arial', 15, "bold"), fg='#10416A').place(x=200, y=35)
+
+            def delete_invalid():
+                label_invalid = tk.Label(self, text="Something went wrong, check username or password",
+                                         background='#10416A', font=('arial', 15, "bold"), fg='#10416A').place(x=200,y=35)
+
+            def delete_both_home2(username, password):
+                controller.show_frame(StartPage)
+                label_invalid = tk.Label(self, text="Something went wrong, check username or password",
+                                         background='#10416A', font=('arial', 15, "bold"), fg='#10416A').place(x=200,y=35)
+                label_valid = tk.Label(self,
+                                       text="Your temporary password has been set, make sure to change it when you next logon",
+                                       background='#10416A', font=('arial', 15, "bold"), fg='#10416A').place(x=200, y=35)
+                username.delete(0, tk.END)
+                password.delete(0, tk.END)
+
+            buttons2()
+
+
+
+app = PasswordChanger()
+app.mainloop()
